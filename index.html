@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>São Benedito: Monitoramento Geo-Ambiental</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=300;400;600;800&display=swap');
+        
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: #020617; 
+            color: #f8fafc;
+            margin: 0;
+        }
+
+        .site-entrada {
+            animation: fadeInUp 0.8s ease-out forwards;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #map { 
+            height: 700px; 
+            width: 100%; 
+            border-radius: 40px; 
+            box-shadow: 0 0 60px rgba(30, 64, 175, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .logo-container {
+            width: 180px; 
+            height: 180px;
+            border-radius: 30px;
+            overflow: hidden;
+            border: 3px solid rgba(59, 130, 246, 0.6);
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.4);
+            background: rgba(15, 23, 42, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .marker-vermelho { filter: hue-rotate(140deg) saturate(3) drop-shadow(0 0 10px rgba(239, 68, 68, 0.6)); } 
+        .marker-verde { filter: hue-rotate(260deg) brightness(0.8) drop-shadow(0 0 10px rgba(34, 197, 94, 0.6)); } 
+
+        .leaflet-popup-content-wrapper {
+            border-radius: 28px;
+            background: #0f172a;
+            color: white;
+            width: 380px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .leaflet-popup-tip { background: #0f172a; }
+
+        .custom-scroll::-webkit-scrollbar { width: 5px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .linha-destacada {
+            background-color: rgba(30, 41, 59, 0.9) !important;
+            box-shadow: inset 0 0 20px rgba(99, 102, 241, 0.2);
+            border-left: 4px solid #6366f1 !important;
+        }
+        
+        .overflow-x-auto {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .overflow-x-auto::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden pb-20 site-entrada">
+
+    <header class="p-10 container mx-auto">
+        <div class="flex flex-col lg:flex-row items-start gap-10">
+            <div class="flex flex-col gap-6">
+                <div class="logo-container">
+                    <img src="logo_escola.jpg" alt="Logo Escola" class="w-full h-full object-contain p-2">
+                </div>
+                
+                <div class="bg-slate-900/50 backdrop-blur-xl p-4 rounded-2xl border border-slate-800 shadow-2xl w-fit">
+                    <div class="flex flex-col gap-3 text-[10px] font-black uppercase tracking-widest text-slate-500 italic">
+                        <span class="flex items-center"><span class="w-2.5 h-2.5 bg-red-500 rounded-full mr-2 shadow-[0_0_8px_#ef4444]"></span> Área Crítica</span>
+                        <span class="flex items-center"><span class="w-2.5 h-2.5 bg-green-500 rounded-full mr-2 shadow-[0_0_8px_#10b981]"></span> Área Estável</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex-1 space-y-4">
+                <div class="inline-block px-4 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[12px] font-bold uppercase tracking-[0.3em]">
+                    # Projeto Educacional e Social • 2º Desenvolvimento de Sistemas
+                </div>
+                <h1 class="text-6xl font-extrabold tracking-tighter leading-none uppercase italic text-white">
+                    SÃO BENEDITO <br>
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">ALÉM DA SUPERFÍCIE</span>
+                </h1>
+                
+                <p class="text-slate-400 text-lg leading-relaxed max-w-3xl">
+                    Este mapa foi desenvolvido pela equipe de Ciências da Natureza e Meio Ambiente da turma de 2º ano de Desenvolvimento de Sistemas. Nosso objetivo principal é sinalizar as áreas urbanas que mais sofrem com a falta de infraestrutura e que precisam de intervenção urgente. Além disso, destacamos os bairros que já oferecem uma boa qualidade de vida, mas que enfrentam pequenos problemas que precisam de atenção para garantir o bem-estar futuro dos moradores.
+                </p>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4">
+        <div id="map" class="mb-16"></div>
+        
+        <div class="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="glass-panel p-4 rounded-2xl flex items-center gap-4 border-l-4 border-blue-500">
+                <div class="bg-blue-500/20 p-3 rounded-xl text-blue-400 shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                </div>
+                <p class="text-xs text-slate-300"><strong class="text-white block">NAVEGAÇÃO:</strong> Use o mouse para arrastar o mapa ou os dedos (em touch) para explorar as regiões.</p>
+            </div>
+
+            <div class="glass-panel p-4 rounded-2xl flex items-center gap-4 border-l-4 border-indigo-500">
+                <div class="bg-indigo-500/20 p-3 rounded-xl text-indigo-400 shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                </div>
+                <p class="text-xs text-slate-300"><strong class="text-white block">INTERAÇÃO:</strong> Clique em uma caixa da tabela para destacá-la. Clique novamente para remover o foco.</p>
+            </div>
+
+            <div class="glass-panel p-4 rounded-2xl flex items-center gap-4 border-l-4 border-emerald-500">
+                <div class="bg-emerald-500/20 p-3 rounded-xl text-emerald-400 shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+                </div>
+                <p class="text-xs text-slate-300"><strong class="text-white block">ZOOM:</strong> Use o scroll do mouse ou os botões (+/-) no canto do mapa para aproximar a visão.</p>
+            </div>
+
+            <div class="relative group rounded-2xl p-[1px] bg-gradient-to-r from-blue-500 to-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.2)] transition-all duration-300 hover:shadow-[0_0_30px_rgba(59,130,246,0.4)]">
+                <div class="bg-slate-950 p-4 rounded-[15px] h-full flex flex-col justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-gradient-to-r from-blue-500 to-indigo-500 p-2.5 rounded-xl text-white shadow-[0_0_10px_rgba(99,102,241,0.4)]">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 block italic">MATERIAL DIGITAL</span>
+                            <strong class="text-sm text-white uppercase italic tracking-tight block">LIVRO DO PROJETO</strong>
+                        </div>
+                    </div>
+                    <a href="Ebook_O_Peso_da_Precaridade.pdf" target="_blank" class="w-full text-center py-2 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs uppercase tracking-wider transition-all duration-300 shadow-[0_4px_12px_rgba(99,102,241,0.3)] flex items-center justify-center gap-2">
+                        Acessar E-book
+                        <span>&rarr;</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-12">
+            <section class="mt-20">
+                <h2 class="text-4xl font-extrabold tracking-tight mb-8 uppercase italic border-l-4 border-indigo-500 pl-6 text-white">
+                    Análise Técnico por Localidade
+                </h2>
+                
+                <div class="overflow-x-auto rounded-[2rem] border border-slate-800 shadow-2xl p-1">
+                    <table class="w-full text-left border-collapse bg-slate-900/40 backdrop-blur-md">
+                        <thead>
+                            <tr class="bg-indigo-500/10 text-indigo-400 uppercase text-[11px] font-black tracking-[0.2em]">
+                                <th class="p-6 text-center">Bairro</th>
+                                <th class="p-6">Perfil Socioeconômico</th>
+                                <th class="p-6">Serviços Públicos</th>
+                                <th class="p-6 text-center">Infraestrutura</th>
+                                <th class="p-6">Associação/Liderança</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-slate-300 text-sm select-none">
+                            <tr class="transition-all duration-300 cursor-pointer border-l-4 border-transparent">
+                                <td class="p-6 border-b border-slate-800 font-bold text-white text-center">Barra</td>
+                                <td class="p-6 border-b border-slate-800">Residencial de baixa renda, alta densidade populacional.</td>
+                                <td class="p-6 border-b border-slate-800">Coleta de lixo regular, mas iluminação pública precária.</td>
+                                <td class="p-6 border-b border-slate-800 text-center"><span class="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-[10px] font-bold">CRÍTICA</span></td>
+                                <td class="p-6 border-b border-slate-800 italic text-slate-400">Em processo de organização comunitária.</td>
+                            </tr>
+                            <tr class="transition-all duration-300 cursor-pointer border-l-4 border-transparent">
+                                <td class="p-6 border-b border-slate-800 font-bold text-white text-center">Centro</td>
+                                <td class="p-6 border-b border-slate-800">Comercial e residencial de classe média.</td>
+                                <td class="p-6 border-b border-slate-800">Pleno acesso a bancos, escolas e unidades de saúde.</td>
+                                <td class="p-6 border-b border-slate-800 text-center"><span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-[10px] font-bold">ESTÁVEL</span></td>
+                                <td class="p-6 border-b border-slate-800 italic text-slate-400">Assoc. Comercial de São Benedito (CDL).</td>
+                            </tr>
+                            <tr class="transition-all duration-300 cursor-pointer border-l-4 border-transparent">
+                                <td class="p-6 border-b border-slate-800 font-bold text-white text-center">Bairro ABC</td>
+                                <td class="p-6 border-b border-slate-800">Vulnerabilidade social acentuada, jovens em risco.</td>
+                                <td class="p-6 border-b border-slate-800">Escassez de postos de saúde próximos e áreas de lazer.</td>
+                                <td class="p-6 border-b border-slate-800 text-center"><span class="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-[10px] font-bold">CRÍTICA</span></td>
+                                <td class="p-6 border-b border-slate-800 italic text-slate-400">Liderança religiosa e conselhos locais.</td>
+                            </tr>
+                            <tr class="transition-all duration-300 cursor-pointer border-l-4 border-transparent">
+                                <td class="p-6 border-b border-slate-800 font-bold text-white text-center">Bairro Castelo</td>
+                                <td class="p-6 border-b border-slate-800">Residencial familiar consolidado (Classe Média).</td>
+                                <td class="p-6 border-b border-slate-800">Monitoramento privado parcial e limpeza urbana eficiente.</td>
+                                <td class="p-6 border-b border-slate-800 text-center"><span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-[10px] font-bold">ESTÁVEL</span></td>
+                                <td class="p-6 border-b border-slate-800 italic text-slate-400">Conselho de Moradores do Castelo.</td>
+                            </tr>
+                            <tr class="transition-all duration-300 cursor-pointer border-l-4 border-transparent">
+                                <td class="p-6 border-b border-slate-800 font-bold text-white text-center">Bairro Vila Nova/Toca</td>
+                                <td class="p-6 border-b border-slate-800">População em situação de vulnerabilidade e risco social.</td>
+                                <td class="p-6 border-b border-slate-800">Saneamento inexistente em diversos pontos e segurança deficitária.</td>
+                                <td class="p-6 border-b border-slate-800 text-center"><span class="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-[10px] font-bold">CRÍTICA</span></td>
+                                <td class="p-6 border-b border-slate-800 italic text-slate-400">Lideranças comunitárias locais.</td>
+                            </tr>
+                            <tr class="transition-all duration-300 cursor-pointer border-l-4 border-transparent">
+                                <td class="p-6 border-b border-slate-800 font-bold text-white text-center">Loteamento Bom Jesus</td>
+                                <td class="p-6 border-b border-slate-800">Residencial de alto padrão e chácaras de veraneio.</td>
+                                <td class="p-6 border-b border-slate-800">Serviços privados eficientes, mas coleta de lixo em horários irregulares.</td>
+                                <td class="p-6 border-b border-slate-800 text-center"><span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-[10px] font-bold">ESTÁVEL</span></td>
+                                <td class="p-6 border-b border-slate-800 italic text-slate-400">Associação de Proprietários Local.</td>
+                            </tr>
+                            <tr class="transition-all duration-300 cursor-pointer border-l-4 border-transparent">
+                                <td class="p-6 border-b border-slate-800 font-bold text-white text-center">Condominio Laranjeiras</td>
+                                <td class="p-6 border-b border-slate-800">Condomínio residencial fechado de médio/alto padrão.</td>
+                                <td class="p-6 border-b border-slate-800">Segurança privada e infraestrutura interna completa.</td>
+                                <td class="p-6 border-b border-slate-800 text-center"><span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-[10px] font-bold">ESTÁVEL</span></td>
+                                <td class="p-6 border-b border-slate-800 italic text-slate-400">Administração Própria (Síndico).</td>
+                            </tr>
+                            <tr class="transition-all duration-300 cursor-pointer border-l-4 border-transparent">
+                                <td class="p-6 border-b border-slate-800 font-bold text-white text-center">Bairro do Chora</td>
+                                <td class="p-6 border-b border-slate-800">Zona periférica com alta densidade e vulnerabilidade social.</td>
+                                <td class="p-6 border-b border-slate-800">Déficit em infraestrutura de lazer e policiamento insuficiente.</td>
+                                <td class="p-6 border-b border-slate-800 text-center"><span class="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-[10px] font-bold">CRÍTICA</span></td>
+                                <td class="p-6 border-b border-slate-800 italic text-slate-400">Lideranças comunitárias em articulação.</td>
+                            </tr>
+                            <tr class="transition-all duration-300 cursor-pointer border-l-4 border-transparent">
+                                <td class="p-6 border-b border-slate-800 font-bold text-white text-center">Loteamento Santuario</td>
+                                <td class="p-6 border-b border-slate-800">Área nobre em expansão com excelente qualidade de vida e residências de alto padrão.</td>
+                                <td class="p-6 border-b border-slate-800">Desgaste na pavimentação em trechos específicos e falta de sinalização turística.</td>
+                                <td class="p-6 border-b border-slate-800 text-center"><span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-[10px] font-bold">ESTÁVEL</span></td>
+                                <td class="p-6 border-b border-slate-800 italic text-slate-400">Associação de Proprietários Local.</td>
+                            </tr>
+                            <tr class="transition-all duration-300 cursor-pointer border-l-4 border-transparent">
+                                <td class="p-6 border-b border-slate-800 font-bold text-white text-center">Bairro Cachoeira</td>
+                                <td class="p-6 border-b border-slate-800">Setor local impactado pela expansão habitacional e pelo descuido com a conservação da natureza.</td>
+                                <td class="p-6 border-b border-slate-800">Deterioração do espaço público evidente e descarte incorreto de resíduos em áreas nativas.</td>
+                                <td class="p-6 border-b border-slate-800 text-center"><span class="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-[10px] font-bold">CRÍTICA</span></td>
+                                <td class="p-6 border-b border-slate-800 italic text-slate-400">Coletivos Socioambientais e Residentes.</td>
+                            </tr>
+                            <tr class="transition-all duration-300 cursor-pointer border-l-4 border-transparent">
+                                <td class="p-6 border-b border-slate-800 font-bold text-white text-center">Serra Ville</td>
+                                <td class="p-6 border-b border-slate-800">Bairro estruturado, exibindo boa estabilidade urbana e perfil residencial familiar.</td>
+                                <td class="p-6 border-b border-slate-800">Inconstâncias no cuidado com as luminárias públicas e necessidade de manejo da vegetação nas calçadas.</td>
+                                <td class="p-6 border-b border-slate-800 text-center"><span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-[10px] font-bold">ESTÁVEL</span></td>
+                                <td class="p-6 border-b border-slate-800 italic text-slate-400">Comissão Organizadora de Moradores.</td>
+                            </tr>
+                            <tr class="transition-all duration-300 cursor-pointer border-l-4 border-transparent">
+                                <td class="p-6 border-b border-slate-800 font-bold text-white text-center">Ipiranga</td>
+                                <td class="p-6 border-b border-slate-800">Comunidade que enfrenta sérios desafios de vulnerabilidade social e forte necessidade de policiamento.</td>
+                                <td class="p-6 border-b border-slate-800">Carência severa de infraestrutura básica e falta de atendimento na rede de escoamento e coleta pública.</td>
+                                <td class="p-6 border-b border-slate-800 text-center"><span class="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-[10px] font-bold">CRÍTICA</span></td>
+                                <td class="p-6 border-b border-slate-800 italic text-slate-400">Conselho Consultivo de Moradores.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="mt-4 text-slate-500 text-xs italic text-right">** Dados coletados via observação local e pesquisa de campo da turma de Desenvolvimento de Sistemas.</p>
+            </section>
+
+            <h2 class="text-4xl font-extrabold tracking-tight mb-8 uppercase italic border-l-4 border-blue-500 pl-6 text-white mt-12"> Agir Juntos por um Futuro Duradouro.</h2>
+            
+            <div class="grid lg:grid-cols-2 gap-8">
+                <div class="glass-panel p-10 rounded-[3rem] shadow-2xl">
+                    <h3 class="text-2xl font-bold mb-4 text-emerald-400 uppercase tracking-tighter italic">Preservação-do-Ecossistema-Local</h3>
+                    <p class="text-slate-400 leading-relaxed font-light text-justify">
+                        Saneamento é saúde para as pessoas e vida para o meio ambiente. Ao proteger o nosso lençol freático e as bacias da Ibiapaba, estamos garantindo um futuro muito mais limpo e seguro para todos em São Benedito.
+                    </p>
+                </div>
+
+                <div class="glass-panel p-10 rounded-[3rem] shadow-2xl">
+                    <h3 class="text-2xl font-bold mb-4 text-blue-400 uppercase tracking-tighter italic">Bem-Estar-e-Saúde-do-Município</h3>
+                    <p class="text-slate-400 leading-relaxed font-light text-justify">
+                        Nosso projeto acredita que o saneamento é o primeiro passo para uma vida digna. Ao eliminar os focos de doenças e a sujeira das ruas, estamos ajudando a esvaziar os hospitais e a encher a cidade de bem-estar. É mais do que engenharia; é cuidado com as pessoas.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        const map = L.map('map').setView([-4.0480, -40.8630], 15);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+        const iconeVermelho = new L.Icon.Default({ className: 'marker-vermelho' });
+        const iconeVerde = new L.Icon.Default({ className: 'marker-verde' });
+
+        const locais = [
+            {
+                coords: [-4.0538, -40.8525], 
+                local: "Barra",
+                tipo: "critico",
+                problema: "Falta de pavimentação adequada (gerando lama e poeira) e iluminação pública precária, comprometendo a segurança dos moradores.",
+                resolucao: "Aplicação de pavimentação permeável, extensão da rede de esgoto e instalação de luminárias de LED autossustentáveis."
+            },
+            {
+                coords: [-4.0415, -40.8670], 
+                local: "Bairro ABC",
+                tipo: "critico",
+                problema: "Ausência de redes coletoras de esgoto, gerando fluxos a céu aberto, riscos biológicos e carência de espaços de lazer públicos.",
+                resolucao: "Construção de ramais de esgotamento doméstico, iluminação reforçada e criação de centers culturais e digitais para jovens."
+            },
+            {
+                coords: [-4.062993, -40.865686],
+                local: "Sítio Potós",
+                tipo: "critico",
+                problema: "Distribuição irregular de água encanada e sérios riscos de erosão e isolamento viário nas estradas de terra devido às chuvas.",
+                resolucao: "Ampliação da rede de adutoras locais e execução de obras de contenção de encostas com drenagem pluvial ecológica."
+            },
+            {
+                coords: [-4.049805, -40.865567],
+                local: "Bairro Cachoeira",
+                tipo: "critico",
+                problema: "Descarte irregular de resíduos em encostas nativas por expansão desordenada e ausência total de áreas verdes ou lazer.",
+                resolucao: "Criação de Área de Proteção Ambiental Municipal, instalação de ecopontos e inserção de programas de educação ambiental."
+            },
+            {
+                coords: [-4.045590251816023, -40.87424354590211],
+                local: "Bairro do chora",
+                tipo: "critico",
+                problema: "Esgoto a céu aberto e acessos viários muito estreitos que impedem a entrada de serviços públicos e viaturas de segurança.",
+                resolucao: "Regularização fundiária, alargamento planejado de vias e instalação de uma rede compacta de saneamento a vácuo."
+            },
+            {
+                coords: [-4.067462334469806, -40.8635686095295],
+                local: "Ipiranga",
+                tipo: "critico",
+                problema: "Carência crônica de infraestrutura de escoamento básico, resultando em focos de vetores de doenças e ruas sem iluminação.",
+                resolucao: "Implantação de tubulações subterrâneas pluviais e pavimentação das ruas por meio de mutirões comunitários integrados."
+            },
+            {
+                coords: [-4.0445, -40.8645],
+                local: "Centro",
+                tipo: "estavel",
+                problema: "Saturação do fluxo viário comercial em horários de pico e pontos rápidos de alagamento por galerias de escoamento antigas.",
+                resolucao: "Modernização das galerias pluviais subterrâneas e uso de pisos intertravados drenantes nas calçadas comerciais."
+            },
+            {
+                coords: [-4.048563, -40.859531],
+                local: "Serra Ville",
+                tipo: "estavel",
+                problema: "Lâmpadas queimadas em ruas secundárias e crescimento excessivo de árvores atingindo a rede elétrica aérea.",
+                resolucao: "Substituição completa do parque de iluminação por lâmpadas LED e execução de um plano preventivo de podas técnicas."
+            },
+            {
+                coords: [-4.054542646371912, -40.865484217066545],
+                local: "Castelo",
+                tipo: "estavel",
+                problema: "Desgaste natural da sinalização horizontal de trânsito e fissuras superficiais no asfalto devido a veículos pesados.",
+                resolucao: "Aplicação de microrrevestimento asfáltico preventivo e pintura termoplástica altamente refletiva nas faixas viárias."
+            },
+            {
+                coords: [-4.060947462411856, -40.85919889117228],
+                local: "Loteamento Santuário",
+                tipo: "estavel",
+                problema: "Baixa frequência na coleta seletiva de materiais recicláveis e falta de abrigos estruturados nos pontos de ônibus.",
+                resolucao: "Inserção do setor na rota de coleta seletiva semanal e instalação de abrigos modernos com coberturas sustentáveis."
+            }, 
+            {
+                coords: [-4.062063439455679, -40.86212651706639], 
+                local: "Vila Nova / Toca",
+                tipo: "critico",
+                problema: "Uso generalizado de fossas rudimentares que ameaçam o lençol freático e falta de áreas públicas esportivas.",
+                resolucao: "Substituição por fossas sépticas biodigestoras ecológicas e construção de uma praça multifuncional iluminada."
+            },
+            {
+                coords: [-4.019639139783879, -40.86505296124414], 
+                local: "Loteamento Bom Jesus",
+                tipo: "estavel",
+                problema: "Pequenos trechos com calçamento intertravado cedendo e ausência de placas direcionadas ao ecoturismo serrano.",
+                resolucao: "Nivelamento preventivo do piso urbano e instalação de sinalização turística integrada com totens informativos."
+            },
+            {
+                coords: [-4.044421105123685, -40.85370101205634], 
+                local: "Condomínio Laranjeiras",
+                tipo: "estavel",
+                problema: "A estrada de acesso externo pública carece de acostamento, iluminação e sinalização de entrada e saída de veículos.",
+                resolucao: "Parceria público-privada para pavimentar o acostamento, estender a rede de LED e implantar sinalização refletiva."
+            }
+        ];
+
+        locais.forEach(ponto => {
+            const icon = ponto.tipo === "critico" ? iconeVermelho : iconeVerde;
+            const marcador = L.marker(ponto.coords, { icon: icon }).addTo(map);
+
+            marcador.bindPopup(`
+                <div class="custom-scroll max-h-[400px] p-2 text-justify">
+                    <h2 class="text-xl font-black text-white mb-1 uppercase italic tracking-tighter">${ponto.local}</h2>
+                    <div class="h-1 w-12 bg-blue-600 rounded-full mb-3"></div>
+                    <div class="space-y-3">
+                        <p class="text-xs text-slate-300 leading-relaxed font-light"><strong>PROBLEMA:</strong> ${ponto.problema}</p>
+                        <div class="bg-slate-900/80 p-3 rounded-xl border border-blue-500/20">
+                            <p class="text-[11px] text-white/90 italic font-medium"> <strong class="text-blue-400">SOLUÇÃO:</strong> ${ponto.resolucao}</p>
+                        </div>
+                    </div>
+                </div>
+            `);
+        });
+
+        document.querySelectorAll('tbody tr').forEach(linha => {
+            linha.addEventListener('click', function() {
+                if (this.classList.contains('linha-destacada')) {
+                    this.classList.remove('linha-destacada');
+                } else {
+                    document.querySelectorAll('tbody tr').forEach(r => r.classList.remove('linha-destacada'));
+                    this.classList.add('linha-destacada');
+                }
+            });
+        });
+
+        setTimeout(() => { map.invalidateSize(); }, 200);
+    </script>
+</body>
+</html>
